@@ -2,16 +2,17 @@
 
 namespace Database\Seeders;
 
+use App\Interfaces\BatchingTypes;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 class HmoSeeder extends Seeder
 {
     private $hmos = [
-        ['name'=>'HMO A', 'code'=> 'HMO-A'],
-        ['name'=>'HMO B', 'code'=> 'HMO-B'],
-        ['name'=>'HMO C', 'code'=> 'HMO-C'],
-        ['name'=>'HMO D', 'code'=> 'HMO-D'],
+        ['name'=>'Reliance HMO', 'code'=> 'HMO-A', 'hmo_email' => 'hmo-a@email.com', 'batching_type' => BatchingTypes::SENT_DATE],
+        ['name'=>'AxaMansard HMO', 'code'=> 'HMO-B', 'hmo_email' => 'hmo-b@email.com', 'batching_type' => BatchingTypes::SENT_DATE],
+        ['name'=>'Avon Medical HMO', 'code'=> 'HMO-C', 'hmo_email' => 'hmo-c@email.com', 'batching_type' => BatchingTypes::ENCOUNTER_DATE],
+        ['name'=>'Hygeia HMO', 'code'=> 'HMO-D', 'hmo_email' => 'hmo-d@email.com', 'batching_type' => BatchingTypes::ENCOUNTER_DATE],
     ];
 
     /**

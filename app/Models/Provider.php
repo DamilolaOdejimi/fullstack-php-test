@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Provider extends Model
 {
-    protected $fillable = ['name', 'code', 'provider_type', 'status'];
+    protected $fillable = ['name', 'code', 'location', 'provider_type', 'status'];
 
     /**
      * Get HMO Providers through hmo_providers table

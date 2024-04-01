@@ -14,9 +14,10 @@ class CreateProvidersTable extends Migration
     public function up()
     {
         Schema::create('providers', function (Blueprint $table) {
-            $table->id();
+            $table->increments('id');
             $table->string('name');
             $table->string('code')->unique();
+            $table->string('location');
             $table->integer('provider_type_id')->unsigned();
             $table->foreign('provider_type_id')->references('id')->on('provider_types')
                 ->onUpdate('cascade')->onDelete('cascade');

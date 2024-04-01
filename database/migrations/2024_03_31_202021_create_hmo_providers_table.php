@@ -14,11 +14,11 @@ class CreateHmoProvidersTable extends Migration
     public function up()
     {
         Schema::create('hmo_providers', function (Blueprint $table) {
-            $table->id();
-            $table->integer('hmo_id');
+            $table->increments('id');
+            $table->integer('hmo_id')->unsigned();
             $table->foreign('hmo_id')->references('id')->on('hmos')
                 ->onUpdate('cascade')->onDelete('cascade');
-            $table->integer('provider_id');
+            $table->integer('provider_id')->unsigned();
             $table->foreign('provider_id')->references('id')->on('providers')
                 ->onUpdate('cascade')->onDelete('cascade');
             $table->boolean('status')->default(1);

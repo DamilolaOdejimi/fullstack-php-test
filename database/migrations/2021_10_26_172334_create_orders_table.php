@@ -18,9 +18,6 @@ class CreateOrdersTable extends Migration
             $table->id();
             $table->string('order_number')->unique();
             $table->dateTime('encounter_date');
-            $table->integer('hmo_provider_id')->unsigned();
-            $table->foreign('hmo_provider_id')->references('hmo_providers')->on('id')
-                ->onUpdate('cascade')->onDelete('cascade');
             $table->json('items');
             $table->double('total_amount', 8, 2)->unsigned();
             $table->string('process_status')->default(ProcessStatusTypes::PENDING);

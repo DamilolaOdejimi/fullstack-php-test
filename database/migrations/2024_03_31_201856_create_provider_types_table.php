@@ -14,9 +14,9 @@ class CreateProviderTypesTable extends Migration
     public function up()
     {
         Schema::create('provider_types', function (Blueprint $table) {
-            $table->id();
-            $table->string('name')->unique();
-            $table->tinyText('description')->nullable();
+            $table->increments('id');
+            $table->string('name');
+            $table->string('code')->unique();
             $table->timestamps();
         });
     }

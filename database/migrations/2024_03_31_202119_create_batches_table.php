@@ -14,10 +14,10 @@ class CreateBatchesTable extends Migration
     public function up()
     {
         Schema::create('batches', function (Blueprint $table) {
-            $table->id();
+            $table->increments('id');
             $table->string('label')->unique();
             $table->integer('hmo_provider_id')->unsigned();
-            $table->foreign('hmo_provider_id')->references('hmo_providers')->on('id')
+            $table->foreign('hmo_provider_id')->references('id')->on('hmo_providers')
                 ->onUpdate('cascade')->onDelete('cascade');
             $table->string('status')->default('open');
             $table->timestamps();
