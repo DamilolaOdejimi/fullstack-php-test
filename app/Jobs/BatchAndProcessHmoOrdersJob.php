@@ -26,15 +26,21 @@ class BatchAndProcessHmoOrdersJob implements ShouldQueue
      * @var object
      */
     protected $batch;
+
+    /**
+     * @var string
+     */
+    protected $groupField;
     /**
      * Create a new job instance.
      *
      * @return void
      */
-    public function __construct(object $batch, int $hmoProviderId)
+    public function __construct(object $batch, int $hmoProviderId, string $groupField)
     {
         $this->batch = $batch;
         $this->hmoProviderId = $hmoProviderId;
+        $this->groupField = $groupField;
     }
 
     /**
@@ -45,24 +51,30 @@ class BatchAndProcessHmoOrdersJob implements ShouldQueue
     public function handle()
     {
         $hmoProvider = HmoProvider::find($this->hmoProviderId)->hmo;
-        $groupField = null;
-        switch ($hmoProvider->hmo->batching_type) {
-            case BatchingTypes::SENT_DATE:
-                $groupField = 'created_at';
-                break;
 
-            default:
-                $groupField = 'encounter_date';
-                break;
-        }
-
-        $hmoProvider->orders()->where($groupField, '>=', \Carbon\CarbonImmutable::parse($this->batch->date)->startOfMonth())
-            ->where($groupField, '<=', \Carbon\CarbonImmutable::parse($this->batch->date)->endOfMonth())
-            ->chunk(200, function ($orders) {
+        $hmoProvider->orders()->where($this->groupField, '>=', \Carbon\CarbonImmutable::parse($this->batch->date)->startOfMonth())
+            ->where($this->groupField, '<=', \Carbon\CarbonImmutable::parse($this->batch->date)->endOfMonth())
+            ->chunk(10, function ($orders) {
                 foreach ($orders as $order) {
-                    // Fire a job to Mimick processing for each order
-                    ProcessSingleOrderJob::dispatch($order);
+                    try {
+                        // Dummy function
+                        $this->processOrder();
+
+                        $order->process_status = ProcessStatusTypes::PROCESSED;
+                        $order->save();
+                    } catch (\Exception $ex) {
+                        \Log::error("Unable to process order - " . $order->order_number, $ex);
+                        $order->process_status = ProcessStatusTypes::FAILED;
+                        $order->save();
+                    }
                 }
             });
+    }
+
+
+    protected function processOrder() : bool
+    {
+        // A dummy of the actual processsing of the order
+        return true;
     }
 }

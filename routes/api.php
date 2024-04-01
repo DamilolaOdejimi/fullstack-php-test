@@ -19,9 +19,9 @@ use Illuminate\Support\Facades\Route;
 // });
 
 Route::group(['middleware' => ['api'], 'prefix' => 'v1', 'namespace' => 'Api'], function () {
-    Route::get('/hmos', 'HmoController@index');
-    Route::get('/providers', 'ProviderController@index');
+    // Route::get('/hmos', 'HmoController@index');
+    // Route::get('/providers', 'ProviderController@index');
     // Route::get('/orders/hmo/{hmoId}', 'OrderController@getHmoOrders');
     // Route::post('/submit-order', 'OrderController@submitOrder');
-    Route::post('/process-orders', 'OrderController@processOrders'); // pass batch label
+    Route::post('/process-orders', 'OrderController@processOrders');
 });

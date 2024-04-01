@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Interfaces\StatusCode;
 use Illuminate\Validation\Rule;
 use App\Http\Controllers\Controller;
+use App\Interfaces\BatchingTypes;
 use App\Interfaces\BatchStatuses;
 use App\Jobs\BatchAndProcessHmoOrdersJob;
 use App\Models\Batch;
@@ -18,37 +19,29 @@ use Illuminate\Support\Facades\Validator;
 class OrderController extends Controller
 {
     /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
-    // public function __construct()
-    // {
-    //     $this->middleware('auth');
-    // }
-
-    /**
      * Batch and process .
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
     public function processOrders(Request $request)
     {
-        // Validate batch date & provider
-		$validator = Validator::make($request->all(), [
+        $rules = [
             'provider_name' => ['required', 'string', 'exists:providers,name'],
             'hmo_code' => ['required', 'string', 'exists:hmos,code'],
             'encounter_date' => [
                 'required', 'date', 'date_format:"Y-m-d"',
                 'before_or_equal:' . now()->subMonth()->endOfMonth()->toDateString()
             ],
-            'orders' => ['required', 'array', 'min:1'],
-            'orders.*.name' => ['string', 'required'],
-            'orders.*.quantity' => ['integer', 'required'],
-            'orders.*.unit_price' => ['float', 'required'],
-            'orders.*.amount' => ['float', 'required'],
+            'order' => ['required', 'array', 'min:1'],
+            'order.*.name' => ['string', 'required'],
+            'order.*.quantity' => ['integer', 'required'],
+            'order.*.unit_price' => ['float', 'required'],
+            'order.*.amount' => ['float', 'required'],
             'order_total' => ['float', 'required']
-        ]);
+        ];
+
+        // Validate batch date & provider
+		$validator = Validator::make($request->all(), $rules);
 		if ($validator->fails()) {
             return response()->json([
                 'status' => StatusCode::VALIDATION,
@@ -68,11 +61,22 @@ class OrderController extends Controller
             ], StatusCode::BAD_REQUEST);
         }
 
-        $encounterDate = Carbon\Carbon::parse($request->encounter_date);
+        switch ($hmoProvider->hmo->batching_type) {
+            case BatchingTypes::SENT_DATE:
+                $groupField = 'created_at';
+                $groupDate = now()->format("M Y");
+                break;
+
+            default:
+                $groupField = 'encounter_date';
+                $carbonEncounterDate = Carbon\Carbon::parse($request->encounter_date);
+                $groupDate = $carbonEncounterDate->format("M Y");
+                break;
+        }
 
         $existingBatch = Batch::where('hmo_provider_id', $hmoProvider->id)
-            ->where('date', $encounterDate->format("M Y"))
-            ->where('status', BatchStatuses::OPEN)->first();
+            ->where('date', $groupDate)
+            ->where('status', BatchStatuses::CLOSED)->first();
 
         if($existingBatch){
             return response()->json([
@@ -82,18 +86,18 @@ class OrderController extends Controller
             ], StatusCode::VALIDATION);
         }
 
-        // Create batch
-        $batch = Batch::create([
-            'hmo_provider_id' => $hmoProvider->id,
-            'label' => $hmoProvider->provider()->name . " " . $encounterDate->format("M Y"),
-            'date' => $encounterDate->format("M Y")
-        ]);
 
+        // Create batch
+        $batch = Batch::firstOrcreate([
+            'hmo_provider_id' => $hmoProvider->id,
+            'label' => $hmoProvider->provider()->name . " " . $groupDate,
+            'date' => $groupDate->format("M Y")
+        ]);
 
         Order::createMultiple($request, $hmoProvider->id, $batch->id);
 
         // Fire a job to update orders with batch ID
-        BatchAndProcessHmoOrdersJob::dispatch($batch, $hmoProvider->id);
+        BatchAndProcessHmoOrdersJob::dispatch($batch, $hmoProvider->id, $groupField);
         $response = [
             'status' => StatusCode::OK,
             'message' => 'Successful',
