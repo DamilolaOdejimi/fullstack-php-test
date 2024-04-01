@@ -31,8 +31,8 @@ class AddBatchIdAndHmoProviderIdToOrdersTable extends Migration
     public function down()
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->dropForeign('hmo_provider_id');
-            $table->dropForeign('batch_id');
+            $table->dropForeign(['hmo_provider_id']);
+            $table->dropForeign(['batch_id']);
         });
     }
 }

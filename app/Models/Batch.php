@@ -6,7 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Batch extends Model
 {
-    protected $fillable = ['label', 'hmo_provider_id', 'status'];
+    protected $fillable = ['label', 'date', 'hmo_provider_id', 'status'];
+
+    protected $casts = [
+        'date' => 'datetime:M Y'
+    ];
 
     // hmo_provider
     public function hmoProvider()

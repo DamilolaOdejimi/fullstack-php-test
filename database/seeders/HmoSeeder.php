@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use App\Interfaces\BatchingTypes;
+use App\Models\Hmo;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class HmoSeeder extends Seeder
 {
@@ -22,6 +22,8 @@ class HmoSeeder extends Seeder
      */
     public function run()
     {
-        DB::table('hmos')->insert($this->hmos);
+        foreach($this->hmos as $hmo){
+            Hmo::create($hmo);
+        }
     }
 }

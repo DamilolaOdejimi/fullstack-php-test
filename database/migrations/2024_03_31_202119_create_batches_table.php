@@ -16,6 +16,7 @@ class CreateBatchesTable extends Migration
         Schema::create('batches', function (Blueprint $table) {
             $table->increments('id');
             $table->string('label')->unique();
+            $table->date('date');
             $table->integer('hmo_provider_id')->unsigned();
             $table->foreign('hmo_provider_id')->references('id')->on('hmo_providers')
                 ->onUpdate('cascade')->onDelete('cascade');

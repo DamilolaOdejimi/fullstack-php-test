@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Provider;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class ProviderSeeder extends Seeder
 {
@@ -21,6 +21,8 @@ class ProviderSeeder extends Seeder
      */
     public function run()
     {
-        DB::table('providers')->insert($this->providers);
+        foreach($this->providers as $provider){
+            Provider::firstOrCreate($provider);
+        }
     }
 }
