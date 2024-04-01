@@ -1,11 +1,10 @@
 <?php
 
-use App\Interfaces\ProcessStatusTypes;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateOrdersTable extends Migration
+class CreateBatchesTable extends Migration
 {
     /**
      * Run the migrations.
@@ -14,16 +13,13 @@ class CreateOrdersTable extends Migration
      */
     public function up()
     {
-        Schema::create('orders', function (Blueprint $table) {
+        Schema::create('batches', function (Blueprint $table) {
             $table->id();
-            $table->string('order_number')->unique();
-            $table->dateTime('encounter_date');
+            $table->string('label')->unique();
             $table->integer('hmo_provider_id')->unsigned();
             $table->foreign('hmo_provider_id')->references('hmo_providers')->on('id')
                 ->onUpdate('cascade')->onDelete('cascade');
-            $table->json('items');
-            $table->double('total_amount', 8, 2)->unsigned();
-            $table->string('process_status')->default(ProcessStatusTypes::PENDING);
+            $table->string('status')->default('open');
             $table->timestamps();
         });
     }
@@ -35,6 +31,6 @@ class CreateOrdersTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('orders');
+        Schema::dropIfExists('batches');
     }
 }

@@ -4,12 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Order extends Model
+class Batch extends Model
 {
-    protected $fillable = [
-        'order_number', 'encounter_date', 'hmo_provider_id', 'items', 'total_amount',
-        'batch_id', 'process_status',
-    ];
+    protected $fillable = ['label', 'hmo_provider_id', 'status'];
 
     // hmo_provider
     public function hmoProvider()
@@ -29,9 +26,9 @@ class Order extends Model
         return $this->hmoProvider()->provider();
     }
 
-    // batch
-    public function batch()
+    // provider
+    public function orders()
     {
-        return $this->belongsTo(Batch::class);
+        return $this->hasMany(Order::class);
     }
 }
