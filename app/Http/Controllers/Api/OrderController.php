@@ -9,7 +9,10 @@ use App\Http\Controllers\Controller;
 use App\Interfaces\BatchStatuses;
 use App\Jobs\BatchAndProcessHmoOrdersJob;
 use App\Models\Batch;
+use App\Models\Hmo;
 use App\Models\HmoProvider;
+use App\Models\Order;
+use App\Models\Provider;
 use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
@@ -33,13 +36,18 @@ class OrderController extends Controller
     {
         // Validate batch date & provider
 		$validator = Validator::make($request->all(), [
-            'batch_date' => [
-                'required', 'date', 'date_format:"M Y"',
+            'provider_name' => ['required', 'string', 'exists:providers,name'],
+            'hmo_code' => ['required', 'string', 'exists:hmos,code'],
+            'encounter_date' => [
+                'required', 'date', 'date_format:"Y-m-d"',
                 'before_or_equal:' . now()->subMonth()->endOfMonth()->toDateString()
             ],
-            'hmo_provider_id' => ['required', Rule::exists('hmo_providers')->where(function ($query) {
-                return $query->where('status', true);
-            })]
+            'orders' => ['required', 'array', 'min:1'],
+            'orders.*.name' => ['string', 'required'],
+            'orders.*.quantity' => ['integer', 'required'],
+            'orders.*.unit_price' => ['float', 'required'],
+            'orders.*.amount' => ['float', 'required'],
+            'order_total' => ['float', 'required']
         ]);
 		if ($validator->fails()) {
             return response()->json([
@@ -49,7 +57,23 @@ class OrderController extends Controller
             ], StatusCode::VALIDATION);
         }
 
-        $existingBatch = Batch::where('date', $request->batch_date)->where('status', BatchStatuses::OPEN)->first();
+        $hmo = Hmo::where('code', $request->hmo_code)->first();
+        $provider = Provider::where('name', $request->provider_name)->first();
+        $hmoProvider = HmoProvider::where('hmo_id', $hmo->id)->where('provider_id', $provider->id)->first();
+        if($hmoProvider){
+            return response()->json([
+                'status' => StatusCode::BAD_REQUEST,
+                'message' => 'Provider is not registered with HMO',
+                'data' => [],
+            ], StatusCode::BAD_REQUEST);
+        }
+
+        $encounterDate = Carbon\Carbon::parse($request->encounter_date);
+
+        $existingBatch = Batch::where('hmo_provider_id', $hmoProvider->id)
+            ->where('date', $encounterDate->format("M Y"))
+            ->where('status', BatchStatuses::OPEN)->first();
+
         if($existingBatch){
             return response()->json([
                 'status' => StatusCode::BAD_REQUEST,
@@ -58,20 +82,18 @@ class OrderController extends Controller
             ], StatusCode::VALIDATION);
         }
 
-        // Check batching type of HMO
-        $hmoProviderInstance = HmoProvider::with('hmo')->find($request->hmo_provider_id);
-        $providerName = $hmoProviderInstance->provider()->name;
-
         // Create batch
         $batch = Batch::create([
-            'hmo_provider_id' => $hmoProviderInstance->id,
-            'label' => "$providerName $request->batch_date",
-            'date' => $request->batch_date
+            'hmo_provider_id' => $hmoProvider->id,
+            'label' => $hmoProvider->provider()->name . " " . $encounterDate->format("M Y"),
+            'date' => $encounterDate->format("M Y")
         ]);
 
 
+        Order::createMultiple($request, $hmoProvider->id, $batch->id);
+
         // Fire a job to update orders with batch ID
-        BatchAndProcessHmoOrdersJob::dispatch($batch, $hmoProviderInstance);
+        BatchAndProcessHmoOrdersJob::dispatch($batch, $hmoProvider->id);
         $response = [
             'status' => StatusCode::OK,
             'message' => 'Successful',

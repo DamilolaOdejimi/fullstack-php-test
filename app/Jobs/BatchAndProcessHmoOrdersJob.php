@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Interfaces\BatchingTypes;
+use App\Interfaces\ProcessStatusTypes;
 use App\Models\Batch;
 use App\Models\HmoProvider;
 use Illuminate\Bus\Queueable;
@@ -17,12 +18,12 @@ class BatchAndProcessHmoOrdersJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * @var App\Models\HmoProvider
+     * @var int
      */
-    protected $hmoProvider;
+    protected $hmoProviderId;
 
     /**
-     * @var App\Models\Batch
+     * @var object
      */
     protected $batch;
     /**
@@ -30,10 +31,10 @@ class BatchAndProcessHmoOrdersJob implements ShouldQueue
      *
      * @return void
      */
-    public function __construct(Batch $batch, HmoProvider $hmoProvider)
+    public function __construct(object $batch, int $hmoProviderId)
     {
         $this->batch = $batch;
-        $this->hmoProvider = $hmoProvider;
+        $this->hmoProviderId = $hmoProviderId;
     }
 
     /**
@@ -43,9 +44,9 @@ class BatchAndProcessHmoOrdersJob implements ShouldQueue
      */
     public function handle()
     {
-        $hmo = $this->hmoProvider->hmo;
+        $hmoProvider = HmoProvider::find($this->hmoProviderId)->hmo;
         $groupField = null;
-        switch ($hmo->batching_type) {
+        switch ($hmoProvider->hmo->batching_type) {
             case BatchingTypes::SENT_DATE:
                 $groupField = 'created_at';
                 break;
@@ -55,17 +56,13 @@ class BatchAndProcessHmoOrdersJob implements ShouldQueue
                 break;
         }
 
-        $this->hmoProvider->orders()->where($groupField, '>=', \Carbon\CarbonImmutable::parse($this->batch->date)->startOfMonth())
+        $hmoProvider->orders()->where($groupField, '>=', \Carbon\CarbonImmutable::parse($this->batch->date)->startOfMonth())
             ->where($groupField, '<=', \Carbon\CarbonImmutable::parse($this->batch->date)->endOfMonth())
             ->chunk(200, function ($orders) {
                 foreach ($orders as $order) {
-                    $order->batch_id = $this->batch->id;
-
                     // Fire a job to Mimick processing for each order
+                    ProcessSingleOrderJob::dispatch($order);
                 }
             });
-
-        // Mark batch as processed within last job
-
     }
 }
