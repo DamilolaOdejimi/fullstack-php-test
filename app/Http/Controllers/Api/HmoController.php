@@ -45,6 +45,7 @@ class HmoController extends Controller
                     ->where('status', true);
             });
         })->get();
+        
         $response = [
             'status' => StatusCode::OK,
             'message' => 'Successful',

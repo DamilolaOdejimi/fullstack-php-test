@@ -35,18 +35,4 @@ class Order extends Model
     {
         return $this->belongsTo(Batch::class);
     }
-
-    public static function createMultiple(object $data, int $hmoProviderId, int $batchId)
-    {
-        $data = collect($data)->map(function($order) use($data, $hmoProviderId, $batchId) {
-            $order->order_number = (string) \Str::uuid();
-            $order->encounter_date = $data->encounter_date;
-            $order->hmo_provider_id = $hmoProviderId;
-            $order->items = json_encode($data->orders);
-            $order->total_amount = $data->order_total;
-            $order->batch_id = $batchId;
-        })->toArray();
-        
-        DB::table('orders')->insert($data);
-    }
 }

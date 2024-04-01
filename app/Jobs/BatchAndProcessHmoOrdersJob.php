@@ -2,9 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Interfaces\BatchingTypes;
 use App\Interfaces\ProcessStatusTypes;
-use App\Models\Batch;
 use App\Models\HmoProvider;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -50,7 +48,7 @@ class BatchAndProcessHmoOrdersJob implements ShouldQueue
      */
     public function handle()
     {
-        $hmoProvider = HmoProvider::find($this->hmoProviderId)->hmo;
+        $hmoProvider = HmoProvider::find($this->hmoProviderId);
 
         $hmoProvider->orders()->where($this->groupField, '>=', \Carbon\CarbonImmutable::parse($this->batch->date)->startOfMonth())
             ->where($this->groupField, '<=', \Carbon\CarbonImmutable::parse($this->batch->date)->endOfMonth())

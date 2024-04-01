@@ -2,19 +2,21 @@
 
 namespace App\Http\Controllers\Api;
 
-use Illuminate\Http\Request;
-use App\Interfaces\StatusCode;
-use Illuminate\Validation\Rule;
-use App\Http\Controllers\Controller;
-use App\Interfaces\BatchingTypes;
-use App\Interfaces\BatchStatuses;
-use App\Jobs\BatchAndProcessHmoOrdersJob;
-use App\Models\Batch;
 use App\Models\Hmo;
-use App\Models\HmoProvider;
+use App\Models\Batch;
 use App\Models\Order;
 use App\Models\Provider;
+use App\Models\HmoProvider;
+use Illuminate\Http\Request;
+use App\Interfaces\StatusCode;
+use App\Interfaces\BatchingTypes;
+use App\Interfaces\BatchStatuses;
+use App\Http\Controllers\Controller;
+use App\Interfaces\ProcessStatusTypes;
+use App\Jobs\BatchAndProcessHmoOrdersJob;
 use Illuminate\Support\Facades\Validator;
+use App\Notifications\HmoOrderNotification;
+use Illuminate\Support\Facades\Notification;
 
 class OrderController extends Controller
 {
@@ -50,6 +52,7 @@ class OrderController extends Controller
             ], StatusCode::VALIDATION);
         }
 
+        // Check if HMO is connected to Provider
         $hmo = Hmo::where('code', $request->hmo_code)->first();
         $provider = Provider::where('name', $request->provider_name)->first();
         $hmoProvider = HmoProvider::where('hmo_id', $hmo->id)->where('provider_id', $provider->id)->first();
@@ -61,24 +64,48 @@ class OrderController extends Controller
             ], StatusCode::BAD_REQUEST);
         }
 
+        $batch = $this->setUpBatch($hmoProvider, $request->encounter_date);
+
+        // Process the order
+        $order = $this->processOrder($request, $hmoProvider->id, $batch->id);
+
+        Notification::route('mail', $hmo->hmo_email)->notify(new HmoOrderNotification([
+            'hmo_name' => $hmo->name,
+            'provider_name' => $provider->name,
+            'order_number' => $order->order_number
+        ]));
+
+        $response = [
+            'status' => StatusCode::OK,
+            'message' => 'Successful',
+            'data' => [],
+        ];
+
+        return response()->json($response, StatusCode::OK);
+    }
+
+
+    private function setUpBatch(HmoProvider $hmoProvider, string $encounterDate) {
+        // Determine how batching will be done based on preference of HMO
         switch ($hmoProvider->hmo->batching_type) {
             case BatchingTypes::SENT_DATE:
-                $groupField = 'created_at';
                 $groupDate = now()->format("M Y");
                 break;
 
             default:
-                $groupField = 'encounter_date';
-                $carbonEncounterDate = Carbon\Carbon::parse($request->encounter_date);
+                $carbonEncounterDate = Carbon\Carbon::parse($encounterDate);
                 $groupDate = $carbonEncounterDate->format("M Y");
                 break;
         }
 
-        $existingBatch = Batch::where('hmo_provider_id', $hmoProvider->id)
+        // Exit if batch date/label being used has been closed before hand
+        // This feature is to allow multiple order entries be created against a batch
+        // and to prevent additional orders when the batch is 'closed'
+        $closedBatch = Batch::where('hmo_provider_id', $hmoProvider->id)
             ->where('date', $groupDate)
             ->where('status', BatchStatuses::CLOSED)->first();
 
-        if($existingBatch){
+        if($closedBatch){
             return response()->json([
                 'status' => StatusCode::BAD_REQUEST,
                 'message' => 'Invalid batch date used. Batch already exists and is closed!',
@@ -86,23 +113,29 @@ class OrderController extends Controller
             ], StatusCode::VALIDATION);
         }
 
-
-        // Create batch
+        // Create new batch
         $batch = Batch::firstOrcreate([
             'hmo_provider_id' => $hmoProvider->id,
             'label' => $hmoProvider->provider()->name . " " . $groupDate,
             'date' => $groupDate->format("M Y")
         ]);
 
-        Order::createMultiple($request, $hmoProvider->id, $batch->id);
+        return $batch;
+    }
 
-        // Fire a job to update orders with batch ID
-        BatchAndProcessHmoOrdersJob::dispatch($batch, $hmoProvider->id, $groupField);
-        $response = [
-            'status' => StatusCode::OK,
-            'message' => 'Successful',
-            'data' => [],
-        ];
-        return response()->json($response, StatusCode::OK);
+    private function processOrder(object $data, int $hmoProviderId, int $batchId) {
+        $order = Order::create([
+            'order_number' => (string) \Str::uuid(),
+            'encounter_date' => $data->encounter_date,
+            'hmo_provider_id' => $hmoProviderId,
+            'items' => json_encode($data->orders),
+            'total_amount' => $data->order_total,
+            'batch_id' => $batchId,
+        ]);
+
+        // Dummy function - Trigger hypothetical order processing job
+        // ProcessHmoOrdersJob::dispatch($batch, $hmoProvider->id, $groupField);
+
+        return $order;
     }
 }
